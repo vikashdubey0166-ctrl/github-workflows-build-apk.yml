@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f291e" />
+  <title>MT GC AGT - CRPF Motor Transport Live</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- jsPDF & AutoTable for Clean PDF Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .crpf-gradient {
+      background: linear-gradient(135deg, #0b2518 0%, #16422c 60%, #1e563a 100%);
+    }
+    .gold-accent {
+      border-bottom: 3px solid #d97706;
+    }
+  </style>
+</head>
+<body class="text-slate-800 pb-20 select-none">
+
+  <!-- LIVE NOTIFICATION BANNER -->
+  <div id="liveToast" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 hidden w-11/12 max-w-md bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border-l-4 border-amber-500 flex items-center gap-3 transition-all">
+    <i data-lucide="bell-ring" class="w-5 h-5 text-amber-400 shrink-0"></i>
+    <div class="text-xs">
+      <p class="font-bold text-amber-400" id="toastTitle">MT GC AGT Live Update</p>
+      <p id="toastMsg" class="text-slate-200 mt-0.5">Data synchronized across all devices.</p>
+    </div>
+  </div>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="min-h-screen crpf-gradient flex flex-col justify-center items-center p-5">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+      <div class="crpf-gradient p-6 text-center text-white gold-accent">
+        <div class="w-20 h-20 mx-auto bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-amber-400/50 mb-3 shadow-lg">
+          <i data-lucide="truck" class="w-11 h-11 text-amber-400"></i>
+        </div>
+        <h1 class="text-2xl font-extrabold tracking-wide">MT GC AGT</h1>
+        <p class="text-xs text-emerald-200 uppercase tracking-widest mt-1">Motor Transport Platoon • GC CRPF Agartala</p>
+      </div>
+
+      <form id="loginForm" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Force Number (Username)</label>
+          <div class="relative">
+            <i data-lucide="shield" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+            <input type="text" id="loginForceNo" required placeholder="e.g. 165060166"
+              class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-700" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Password</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+            <input type="password" id="loginPassword" required placeholder="Mt@[ForceNo]"
+              class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-700" />
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">Default Password: <b>Mt@ForceNo</b> (Admin: 165060166)</p>
+        </div>
+
+        <p id="loginError" class="text-xs text-red-600 font-semibold hidden bg-red-50 p-2.5 rounded-lg border border-red-200"></p>
+
+        <button type="submit" class="w-full crpf-gradient text-white font-bold py-3.5 rounded-xl shadow-lg hover:opacity-95 transition flex items-center justify-center gap-2">
+          <i data-lucide="log-in" class="w-4 h-4"></i>
+          <span>SECURE LOGIN</span>
+        </button>
+      </form>
+    </div>
+    <p class="text-emerald-200/70 text-[11px] mt-6">Connected to Firebase: mt-gc-agt-default-rtdb</p>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div id="mainApp" class="hidden max-w-4xl mx-auto">
+    
+    <!-- TOP HEADER -->
+    <header class="crpf-gradient text-white px-4 py-3.5 sticky top-0 z-30 shadow-lg gold-accent">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-amber-500/20 border border-amber-400/60 rounded-xl flex items-center justify-center">
+            <i data-lucide="truck" class="w-6 h-6 text-amber-400"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-extrabold text-lg leading-none">MT GC AGT</h1>
+              <span id="syncBadge" class="text-[10px] bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-full border border-emerald-400/40 flex items-center gap-1">
+                <span id="syncDot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                <span id="syncText">CONNECTING...</span>
+              </span>
+            </div>
+            <p class="text-[11px] text-emerald-200 mt-0.5" id="loggedUserInfo">Loading...</p>
+          </div>
+        </div>
+        <button onclick="logout()" class="p-2 bg-white/10 hover:bg-red-500/80 rounded-xl transition" title="Logout">
+          <i data-lucide="log-out" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- TAB CONTENT AREA -->
+    <main class="p-4 space-y-5">
+
+      <!-- 1. DASHBOARD TAB -->
+      <section id="tab-dashboard" class="space-y-5">
+        
+        <!-- PERSONNEL PARADE STATE -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-800 text-white px-4 py-2.5 flex justify-between items-center">
+            <h2 class="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="users" class="w-4 h-4 text-amber-400"></i> Personnel Parade State
+            </h2>
+            <span class="text-xs font-extrabold bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full" id="pTotalCount">Total: 49</span>
+          </div>
+          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 p-3 text-center">
+            <div onclick="filterPersonnelByStatus('PRESENT')" class="cursor-pointer bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-emerald-700" id="pPresentCount">0</p>
+              <p class="text-[10px] font-bold text-emerald-800 uppercase">Present</p>
+            </div>
+            <div onclick="filterPersonnelByStatus('ON DUTY')" class="cursor-pointer bg-blue-50 border border-blue-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-blue-700" id="pDutyCount">0</p>
+              <p class="text-[10px] font-bold text-blue-800 uppercase">On Duty</p>
+            </div>
+            <div onclick="filterPersonnelByStatus('LEAVE')" class="cursor-pointer bg-red-50 border border-red-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-red-700" id="pLeaveCount">0</p>
+              <p class="text-[10px] font-bold text-red-800 uppercase">Leave</p>
+            </div>
+            <div onclick="filterPersonnelByStatus('COURSE')" class="cursor-pointer bg-purple-50 border border-purple-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-purple-700" id="pCourseCount">0</p>
+              <p class="text-[10px] font-bold text-purple-800 uppercase">Course</p>
+            </div>
+            <div onclick="filterPersonnelByStatus('ATTACHMENT')" class="cursor-pointer bg-amber-50 border border-amber-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-amber-700" id="pAttachCount">0</p>
+              <p class="text-[10px] font-bold text-amber-800 uppercase">Attachment</p>
+            </div>
+            <div onclick="filterPersonnelByStatus('OTHER')" class="cursor-pointer bg-slate-100 border border-slate-300 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-slate-700" id="pOtherCount">0</p>
+              <p class="text-[10px] font-bold text-slate-800 uppercase">Rest/Hosp</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- VEHICLE FLEET STATE -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-emerald-900 text-white px-4 py-2.5 flex justify-between items-center">
+            <h2 class="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="car-front" class="w-4 h-4 text-amber-400"></i> MT Vehicle Fleet State
+            </h2>
+            <span class="text-xs font-extrabold bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full" id="vTotalCount">Total: 38</span>
+          </div>
+          <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 p-3 text-center">
+            <div onclick="filterVehiclesByStatus('PRESENT')" class="cursor-pointer bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-emerald-700" id="vPresentCount">0</p>
+              <p class="text-[10px] font-bold text-emerald-800 uppercase">Present (IN)</p>
+            </div>
+            <div onclick="filterVehiclesByStatus('ON DUTY')" class="cursor-pointer bg-blue-50 border border-blue-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-blue-700" id="vDutyCount">0</p>
+              <p class="text-[10px] font-bold text-blue-800 uppercase">On Duty (OUT)</p>
+            </div>
+            <div onclick="filterVehiclesByStatus('OFF ROAD')" class="cursor-pointer bg-red-50 border border-red-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-red-700" id="vOffRoadCount">0</p>
+              <p class="text-[10px] font-bold text-red-800 uppercase">Off Road</p>
+            </div>
+            <div onclick="filterVehiclesByStatus('UNDER CBP')" class="cursor-pointer bg-orange-50 border border-orange-200 p-2.5 rounded-xl">
+              <p class="text-xl font-extrabold text-orange-700" id="vCbpCount">0</p>
+              <p class="text-[10px] font-bold text-orange-800 uppercase">Under CBP</p>
+            </div>
+            <div onclick="filterVehiclesByStatus('ATTACHMENT')" class="cursor-pointer bg-purple-50 border border-purple-200 p-2.5 rounded-xl col-span-2 sm:col-span-1">
+              <p class="text-xl font-extrabold text-purple-700" id="vAttachCount">0</p>
+              <p class="text-[10px] font-bold text-purple-800 uppercase">Attachment</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- LIVE GATE IN / OUT REGISTER -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+            <h2 class="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="arrow-left-right" class="w-4 h-4 text-amber-400"></i> Vehicle IN / OUT Gate Register
+            </h2>
+            <button onclick="openGateOutModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> VEHICLE OUT
+            </button>
+          </div>
+          <div id="activeGateLogs" class="divide-y divide-slate-100 max-h-80 overflow-y-auto"></div>
+        </div>
+
+      </section>
+
+      <!-- 2. PERSONNEL TAB -->
+      <section id="tab-personnel" class="hidden space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-base font-extrabold text-slate-800">MT Personnel Directory</h2>
+          <div class="flex gap-2">
+            <button onclick="exportPersonnelPDF()" class="bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
+              <i data-lucide="file-down" class="w-4 h-4 text-amber-400"></i> PDF (No Leave Col)
+            </button>
+            <button onclick="openAddPersonnelModal()" class="admin-only hidden bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
+              <i data-lucide="user-plus" class="w-4 h-4"></i> Add Staff
+            </button>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <input type="text" id="personnelSearch" oninput="renderPersonnel()" placeholder="Search Name, Force No, Rank..."
+            class="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-700" />
+          <select id="personnelStatusFilter" onchange="renderPersonnel()" class="px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold">
+            <option value="ALL">ALL STATUS</option>
+            <option value="PRESENT">PRESENT</option>
+            <option value="ON DUTY">ON DUTY</option>
+            <option value="LEAVE">LEAVE</option>
+            <option value="COURSE">COURSE</option>
+            <option value="ATTACHMENT">ATTACHMENT</option>
+            <option value="OTHER">REST/HOSP</option>
+          </select>
+        </div>
+
+        <div id="personnelList" class="space-y-2.5"></div>
+      </section>
+
+      <!-- 3. VEHICLES TAB -->
+      <section id="tab-vehicles" class="hidden space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-base font-extrabold text-slate-800">MT Fleet & Vehicles</h2>
+          <div class="flex gap-2">
+            <button onclick="exportVehiclesPDF()" class="bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
+              <i data-lucide="file-down" class="w-4 h-4 text-amber-400"></i> Fleet PDF
+            </button>
+            <button onclick="openAddVehicleModal()" class="admin-only hidden bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
+              <i data-lucide="plus" class="w-4 h-4"></i> Add Vehicle
+            </button>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <input type="text" id="vehicleSearch" oninput="renderVehicles()" placeholder="Search Reg No (e.g. AS01) or Type..."
+            class="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-700" />
+          <select id="vehicleStatusFilter" onchange="renderVehicles()" class="px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold">
+            <option value="ALL">ALL VEHICLES</option>
+            <option value="PRESENT">PRESENT</option>
+            <option value="ON DUTY">ON DUTY</option>
+            <option value="OFF ROAD">OFF ROAD</option>
+            <option value="UNDER CBP">UNDER CBP</option>
+            <option value="ATTACHMENT">ATTACHMENT</option>
+          </select>
+        </div>
+
+        <div id="vehicleList" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+      </section>
+
+      <!-- 4. DUTY ROSTER TAB -->
+      <section id="tab-duty" class="hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-base font-extrabold text-slate-800">MT Duty Roster (HC & CT Selection)</h2>
+          <button onclick="exportDutyPDF()" class="bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
+            <i data-lucide="printer" class="w-4 h-4 text-amber-400"></i> Duty PDF
+          </button>
+        </div>
+
+        <div class="admin-only hidden bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <h3 class="text-xs font-extrabold uppercase text-emerald-800 flex items-center gap-1.5">
+            <i data-lucide="clipboard-check" class="w-4 h-4"></i> Assign Duty (Filter by Rank)
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div>
+              <label class="text-[11px] font-bold text-slate-500">1. Duty Point / Post</label>
+              <select id="dutyPostSelect" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold">
+                <option value="POLE GUARD (1 HC + 4 CT)">Pole Guard (1 HC + 4 CT)</option>
+                <option value="MT PARK GUARD (1 HC + 1 CT)">MT Park Guard (1 HC + 1 CT)</option>
+                <option value="MT MUNSHI / GATE DUTY">MT Munshi / Gate Duty</option>
+                <option value="SCHOOL BUS / CONVOY DUTY">School Bus / Convoy Duty</option>
+                <option value="WORKSHOP / REPAIR DUTY">Workshop / Repair Duty</option>
+                <option value="ADMIN / OFFICE ATTACHMENT">Admin / Office Attachment</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] font-bold text-slate-500">2. Filter Rank (HC / CT)</label>
+              <select id="dutyRankFilter" onchange="populateDutyPersonnelDropdown()" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold">
+                <option value="ALL">All Ranks</option>
+                <option value="HC">Only Head Constables (HC)</option>
+                <option value="CT">Only Constables (CT)</option>
+                <option value="SO">Subordinate Officers (INSP/SI/ASI)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] font-bold text-slate-500">3. Select Personnel</label>
+              <select id="dutyPersonnelSelect" class="w-full mt-1 p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold"></select>
+            </div>
+          </div>
+          <button onclick="assignDuty()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold py-2.5 rounded-xl shadow">
+            + ASSIGN DUTY & SYNC LIVE
+          </button>
+        </div>
+
+        <div id="dutyRosterList" class="space-y-2.5"></div>
+      </section>
+
+      <!-- 5. DOCUMENTS & ADMIN PANEL TAB -->
+      <section id="tab-docs" class="hidden space-y-5">
+        
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex justify-between items-center">
+            <h2 class="text-sm font-extrabold text-slate-800 flex items-center gap-2">
+              <i data-lucide="folder-open" class="w-4 h-4 text-amber-600"></i> Official Orders & Documents
+            </h2>
+          </div>
+
+          <div class="admin-only hidden bg-slate-50 p-3 rounded-xl border border-dashed border-slate-300 space-y-2.5">
+            <input type="text" id="docTitle" placeholder="Document Title (e.g. Monthly Inspection Roster Nov 2026)"
+              class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold" />
+            <div class="flex items-center gap-2">
+              <input type="file" id="docFileInput" accept=".pdf,image/*,.doc,.docx" class="text-xs flex-1" />
+              <button onclick="uploadDocument()" class="bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg shrink-0">
+                Upload
+              </button>
+            </div>
+          </div>
+
+          <div id="documentsList" class="divide-y divide-slate-100"></div>
+        </div>
+
+        <!-- ADMIN CONTROL CENTER -->
+        <div class="admin-only hidden bg-white p-4 rounded-2xl border-2 border-amber-400 shadow-sm space-y-4">
+          <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+            <i data-lucide="shield-alert" class="w-5 h-5 text-amber-600"></i> Admin Control Center
+          </h3>
+
+          <div class="bg-slate-50 p-3 rounded-xl space-y-2">
+            <p class="text-xs font-bold text-slate-700">1. Change / Reset Personnel Password</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <select id="resetPassUserSelect" class="p-2 bg-white border border-slate-300 rounded-lg text-xs font-bold"></select>
+              <input type="text" id="newPassInput" placeholder="New Password (blank = default)" class="p-2 bg-white border border-slate-300 rounded-lg text-xs" />
+              <button onclick="adminResetPassword()" class="bg-slate-800 text-white text-xs font-bold py-2 rounded-lg">Update Password</button>
+            </div>
+          </div>
+
+          <div class="bg-red-50 p-3 rounded-xl border border-red-200 space-y-2">
+            <p class="text-xs font-bold text-red-800">2. Transfer Admin ID Rights</p>
+            <p class="text-[11px] text-red-600">Warning: Transferring Admin ID will hand over full administrative control to the selected personnel.</p>
+            <div class="flex gap-2">
+              <select id="transferAdminSelect" class="flex-1 p-2 bg-white border border-red-300 rounded-lg text-xs font-bold"></select>
+              <button onclick="transferAdminRights()" class="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg">Transfer Admin</button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- BOTTOM NAVIGATION BAR -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-2 py-1.5 z-30 shadow-lg">
+      <div class="max-w-4xl mx-auto grid grid-cols-5 text-center">
+        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn text-emerald-800 flex flex-col items-center py-1">
+          <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+          <span class="text-[10px] font-bold mt-0.5">Dashboard</span>
+        </button>
+        <button onclick="switchTab('personnel')" id="nav-personnel" class="nav-btn text-slate-400 flex flex-col items-center py-1">
+          <i data-lucide="users" class="w-5 h-5"></i>
+          <span class="text-[10px] font-bold mt-0.5">Staff (49)</span>
+        </button>
+        <button onclick="switchTab('vehicles')" id="nav-vehicles" class="nav-btn text-slate-400 flex flex-col items-center py-1">
+          <i data-lucide="truck" class="w-5 h-5"></i>
+          <span class="text-[10px] font-bold mt-0.5">Vehicles</span>
+        </button>
+        <button onclick="switchTab('duty')" id="nav-duty" class="nav-btn text-slate-400 flex flex-col items-center py-1">
+          <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+          <span class="text-[10px] font-bold mt-0.5">Duty</span>
+        </button>
+        <button onclick="switchTab('docs')" id="nav-docs" class="nav-btn text-slate-400 flex flex-col items-center py-1">
+          <i data-lucide="folder-cog" class="w-5 h-5"></i>
+          <span class="text-[10px] font-bold mt-0.5">Docs/Admin</span>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- MODALS -->
+  <div id="personnelModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+      <div class="crpf-gradient text-white p-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm">Personnel Service & Profile Details</h3>
+        <button onclick="closeModal('personnelModal')"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="personnelModalBody" class="p-4 overflow-y-auto space-y-3 text-xs"></div>
+    </div>
+  </div>
+
+  <div id="vehicleModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+      <div class="bg-emerald-900 text-white p-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm">Vehicle Details & Logbook</h3>
+        <button onclick="closeModal('vehicleModal')"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="vehicleModalBody" class="p-4 overflow-y-auto space-y-3 text-xs"></div>
+    </div>
+  </div>
+
+  <div id="gateOutModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm">Vehicle Gate OUT Entry</h3>
+        <button onclick="closeModal('gateOutModal')"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form onsubmit="submitGateOut(event)" class="p-4 space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-600">Select Available Vehicle</label>
+          <select id="gateOutVehicle" required class="w-full mt-1 p-2.5 border rounded-xl font-bold"></select>
+        </div>
+        <div>
+          <label class="font-bold text-slate-600">Select Driver Taking Vehicle</label>
+          <select id="gateOutDriver" required class="w-full mt-1 p-2.5 border rounded-xl font-bold"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="font-bold text-slate-600">OUT KM Reading</label>
+            <input type="number" id="gateOutKm" required placeholder="e.g. 45210" class="w-full mt-1 p-2.5 border rounded-xl font-bold" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-600">Destination / Duty</label>
+            <input type="text" id="gateOutDest" required placeholder="e.g. Agartala Airport" class="w-full mt-1 p-2.5 border rounded-xl font-bold" />
+          </div>
+        </div>
+        <button type="submit" class="w-full bg-amber-500 text-slate-950 font-extrabold py-3 rounded-xl shadow">
+          CONFIRM VEHICLE OUT
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="addEntityModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
+      <div class="crpf-gradient text-white p-4 flex justify-between items-center">
+        <h3 id="addModalTitle" class="font-bold text-sm">Add New Entry</h3>
+        <button onclick="closeModal('addEntityModal')"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="addModalBody" class="p-4 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- FIREBASE REALTIME DATABASE LIVE SYNC (CONFIGURED FOR mt-gc-agt) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      projectId: "mt-gc-agt",
+      databaseURL: "https://mt-gc-agt-default-rtdb.firebaseio.com"
+    };
+
+    window.cloudSyncEnabled = false;
+    let isInitialCloudLoad = true;
+    let lastSeenNotifId = null;
+
+    function updateSyncStatus(connected) {
+      const dot = document.getElementById("syncDot");
+      const text = document.getElementById("syncText");
+      if (!dot || !text) return;
+      if (connected) {
+        dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse";
+        text.innerText = "CLOUD LIVE";
+      } else {
+        dot.className = "w-1.5 h-1.5 rounded-full bg-amber-400";
+        text.innerText = "LOCAL MODE";
+      }
+    }
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+      const dbRef = ref(db, 'mt_gc_agt_live_data');
+
+      window.cloudSyncEnabled = true;
+
+      window.pushToCloud = (data) => {
+        set(dbRef, data)
+          .then(() => updateSyncStatus(true))
+          .catch((err) => {
+            console.error("Firebase Write Error:", err);
+            updateSyncStatus(false);
+          });
+      };
+
+      // Check if cloud already has data; if empty, seed initial 49 staff + 38 vehicles
+      get(dbRef).then((snapshot) => {
+        if (!snapshot.exists() && window.getAppState) {
+          set(dbRef, window.getAppState());
+        }
+      }).catch(e => console.warn("Initial cloud check:", e));
+
+      // Real-time listener across all devices
+      onValue(dbRef, (snapshot) => {
+        updateSyncStatus(true);
+        const val = snapshot.val();
+        if (val && window.onCloudUpdate) {
+          // Ensure arrays are intact (Firebase sometimes converts sparse arrays)
+          if (val.personnel && !Array.isArray(val.personnel)) val.personnel = Object.values(val.personnel);
+          if (val.vehicles && !Array.isArray(val.vehicles)) val.vehicles = Object.values(val.vehicles);
+          if (val.gateLogs && !Array.isArray(val.gateLogs)) val.gateLogs = Object.values(val.gateLogs);
+          if (val.duties && !Array.isArray(val.duties)) val.duties = Object.values(val.duties);
+          if (val.documents && !Array.isArray(val.documents)) val.documents = Object.values(val.documents);
+
+          const shouldNotify = !isInitialCloudLoad && val.lastNotification && val.lastNotification.id !== lastSeenNotifId;
+          if (val.lastNotification) lastSeenNotifId = val.lastNotification.id;
+          isInitialCloudLoad = false;
+
+          window.onCloudUpdate(val, shouldNotify);
+        }
+      }, (error) => {
+        console.error("Firebase Sync Error:", error);
+        updateSyncStatus(false);
+      });
+
+    } catch (e) {
+      console.warn("Firebase init fallback:", e);
+      updateSyncStatus(false);
+    }
+  </script>
+
+  <script>
+    // ==========================================
+    // 1. INITIAL PRE-LOADED DATA (49 STAFF & 38 VEHICLES)
+    // ==========================================
+    const INITIAL_PERSONNEL = [
+      { forceNo: "900440064", rank: "INSP/MT", name: "MD. MOKTAR HUSSAIN", mobile: "9911439132", status: "PRESENT", attachment: "", dlNo: "", dlValid: "", photo: "" },
+      { forceNo: "900991221", rank: "SI/MM", name: "EDLAPALLI HARINATH", mobile: "7889915950", status: "PRESENT", attachment: "", dlNo: "", dlValid: "", photo: "" },
+      { forceNo: "923050413", rank: "ASI/MT", name: "HIT LAL PANDIT", mobile: "6005871431", status: "PRESENT", attachment: "", dlNo: "", dlValid: "", photo: "" },
+      { forceNo: "911262278", rank: "HC/DVR", name: "DEBASHISH DEB", mobile: "9954250964", status: "PRESENT", attachment: "", dlNo: "TR01-2008001245", dlValid: "2029-08-15", photo: "" },
+      { forceNo: "913133824", rank: "HC/DVR", name: "R. MADHESHWARAN", mobile: "6006461611", status: "PRESENT", attachment: "", dlNo: "TN38-2009004512", dlValid: "2028-11-20", photo: "" },
+      { forceNo: "943292662", rank: "HC/DVR", name: "M. BALA SUBRAMANIAM", mobile: "7847032096", status: "PRESENT", attachment: "", dlNo: "TN59-2010008821", dlValid: "2030-03-10", photo: "" },
+      { forceNo: "940760076", rank: "HC/DVR", name: "SURESH KUMAR", mobile: "9555044278", status: "PRESENT", attachment: "", dlNo: "HR05-2009003319", dlValid: "2029-05-18", photo: "" },
+      { forceNo: "941352061", rank: "HC/DVR", name: "JOHN JUSTIN", mobile: "9944653058", status: "PRESENT", attachment: "", dlNo: "TN74-2008007741", dlValid: "2028-12-01", photo: "" },
+      { forceNo: "941342109", rank: "HC/DVR", name: "MANI RAM CHETTRI", mobile: "8787564820", status: "PRESENT", attachment: "", dlNo: "AS01-2010005412", dlValid: "2029-09-12", photo: "" },
+      { forceNo: "951270048", rank: "HC/DVR", name: "MANIKANTAN S.", mobile: "6009143112", status: "PRESENT", attachment: "", dlNo: "KL01-2011009912", dlValid: "2030-01-25", photo: "" },
+      { forceNo: "951431024", rank: "HC/DVR", name: "RAKESH KUMAR", mobile: "7780955823", status: "PRESENT", attachment: "", dlNo: "JK02-2010006623", dlValid: "2029-07-14", photo: "" },
+      { forceNo: "971240795", rank: "HC/DVR", name: "NIPEN HAJARIKA", mobile: "8638181314", status: "PRESENT", attachment: "", dlNo: "AS03-2011002389", dlValid: "2030-06-30", photo: "" },
+      { forceNo: "981241197", rank: "HC/DVR", name: "RAJEEB SHARMA", mobile: "8459824082", status: "PRESENT", attachment: "", dlNo: "AS01-2012004190", dlValid: "2031-02-19", photo: "" },
+      { forceNo: "981231361", rank: "HC/DVR", name: "SHANKAR BISWAS", mobile: "7583992113", status: "PRESENT", attachment: "", dlNo: "TR01-2012007823", dlValid: "2030-10-11", photo: "" },
+      { forceNo: "991241742", rank: "HC/DVR", name: "SUJIT KUMAR CHOUDHURI", mobile: "7005052327", status: "PRESENT", attachment: "", dlNo: "TR02-2013001129", dlValid: "2031-04-22", photo: "" },
+      { forceNo: "005103742", rank: "HC/DVR", name: "KUSHAL NANDAN", mobile: "8837360651", status: "PRESENT", attachment: "", dlNo: "BR01-2013008945", dlValid: "2030-08-09", photo: "" },
+      { forceNo: "991161115", rank: "HC/DVR", name: "R. RAMESH", mobile: "8946043679", status: "PRESENT", attachment: "", dlNo: "TN45-2012003478", dlValid: "2029-12-17", photo: "" },
+      { forceNo: "005132199", rank: "HC/DVR", name: "SUBIR NATH", mobile: "6005393358", status: "PRESENT", attachment: "", dlNo: "TR01-2013005612", dlValid: "2031-07-05", photo: "" },
+      { forceNo: "015261543", rank: "HC/DVR", name: "SUNIL KUMAR", mobile: "9149990669", status: "PRESENT", attachment: "", dlNo: "UP32-2014007123", dlValid: "2032-03-14", photo: "" },
+      { forceNo: "015122276", rank: "HC/DVR", name: "PRAJAPATI HARESH KUMAR", mobile: "8401464056", status: "PRESENT", attachment: "", dlNo: "GJ01-2014009234", dlValid: "2031-11-28", photo: "" },
+      { forceNo: "025260477", rank: "HC/DVR", name: "SANDEEP KUMAR", mobile: "7505246363", status: "PRESENT", attachment: "", dlNo: "UK07-2014003345", dlValid: "2032-05-19", photo: "" },
+      { forceNo: "035071624", rank: "HC/DVR", name: "PUSHAP SHARMA", mobile: "9149654815", status: "PRESENT", attachment: "", dlNo: "JK02-2015004412", dlValid: "2032-09-01", photo: "" },
+      { forceNo: "055132182", rank: "HC/DVR", name: "RAJEEV RANJAN", mobile: "6005921614", status: "PRESENT", attachment: "", dlNo: "BR06-2015006678", dlValid: "2033-01-12", photo: "" },
+      { forceNo: "031465834", rank: "CT/DVR", name: "RIZWAN A. KHAN", mobile: "7017786859", status: "PRESENT", attachment: "", dlNo: "UP80-2014008123", dlValid: "2031-06-15", photo: "" },
+      { forceNo: "045022839", rank: "CT/DVR", name: "RAM KUMAR", mobile: "8077418326", status: "PRESENT", attachment: "", dlNo: "UP14-2014009911", dlValid: "2032-02-10", photo: "" },
+      { forceNo: "085250359", rank: "CT/DVR", name: "KAMAL KUMAR", mobile: "8222091425", status: "PRESENT", attachment: "", dlNo: "HR12-2015002290", dlValid: "2032-08-24", photo: "" },
+      { forceNo: "125002666", rank: "CT/DVR", name: "MAHAVEER SINGH KALWANIYAN", mobile: "9887129596", status: "PRESENT", attachment: "", dlNo: "RJ14-2015007745", dlValid: "2033-04-18", photo: "" },
+      { forceNo: "125350263", rank: "CT/DVR", name: "MANOJ KUMAR RAY", mobile: "9823468880", status: "PRESENT", attachment: "", dlNo: "MH12-2015005531", dlValid: "2033-07-29", photo: "" },
+      { forceNo: "135352802", rank: "CT/DVR", name: "UPENDRA DEBNATH", mobile: "7002067665", status: "PRESENT", attachment: "", dlNo: "TR01-2016003198", dlValid: "2034-01-05", photo: "" },
+      { forceNo: "135175564", rank: "CT/DVR", name: "NITESH KUMAR SINGH", mobile: "9430127325", status: "PRESENT", attachment: "", dlNo: "BR01-2016004821", dlValid: "2033-11-11", photo: "" },
+      { forceNo: "155090312", rank: "CT/DVR", name: "RAJKUMAR TIWARI", mobile: "7217631157", status: "PRESENT", attachment: "", dlNo: "MP07-2016001923", dlValid: "2034-03-21", photo: "" },
+      { forceNo: "155350367", rank: "CT/DVR", name: "BHUSAN DAS", mobile: "6009456306", status: "PRESENT", attachment: "", dlNo: "AS01-2016008341", dlValid: "2034-06-14", photo: "" },
+      { forceNo: "165060166", rank: "CT/DVR", name: "VIKASH DUBEY", mobile: "9149753674", status: "PRESENT", attachment: "MT Office Admin", dlNo: "MP06-2016005472", dlValid: "2036-11-04", photo: "" },
+      { forceNo: "175318309", rank: "CT/DVR", name: "BINOY MALICK", mobile: "7679207710", status: "PRESENT", attachment: "", dlNo: "WB24-2016009120", dlValid: "2034-09-19", photo: "" },
+      { forceNo: "175091091", rank: "CT/DVR", name: "ABDUL SAHID", mobile: "9864501923", status: "PRESENT", attachment: "", dlNo: "AS01-2016007234", dlValid: "2034-12-08", photo: "" },
+      { forceNo: "175091108", rank: "CT/DVR", name: "N. MANIMOHAN SINGH", mobile: "9959290638", status: "PRESENT", attachment: "", dlNo: "MN01-2016006129", dlValid: "2035-02-14", photo: "" },
+      { forceNo: "175275977", rank: "CT/DVR", name: "SUDALA PRAVEEN", mobile: "9550622631", status: "PRESENT", attachment: "", dlNo: "TS09-2016008834", dlValid: "2035-05-27", photo: "" },
+      { forceNo: "175170105", rank: "CT/DVR", name: "SANGEET GIRI", mobile: "8887560074", status: "PRESENT", attachment: "", dlNo: "UP65-2016003491", dlValid: "2035-04-02", photo: "" },
+      { forceNo: "175170275", rank: "CT/DVR", name: "RITESH KUMAR PANDEY", mobile: "8877755556", status: "PRESENT", attachment: "", dlNo: "BR03-2016007182", dlValid: "2034-10-30", photo: "" },
+      { forceNo: "175370657", rank: "CT/DVR", name: "ANUJ GAUTAM", mobile: "8954832390", status: "PRESENT", attachment: "", dlNo: "UP81-2016005091", dlValid: "2035-01-17", photo: "" },
+      { forceNo: "175377413", rank: "CT/DVR", name: "AJEET SINGH", mobile: "9568783642", status: "PRESENT", attachment: "", dlNo: "UP78-2016009412", dlValid: "2035-06-11", photo: "" },
+      { forceNo: "175376407", rank: "CT/DVR", name: "ATUL KUMAR", mobile: "6394818493", status: "PRESENT", attachment: "", dlNo: "UP32-2016002845", dlValid: "2035-03-25", photo: "" },
+      { forceNo: "175219115", rank: "CT/DVR", name: "RAMESH JAMBHALE", mobile: "6006258448", status: "PRESENT", attachment: "", dlNo: "MH14-2016006731", dlValid: "2034-08-19", photo: "" },
+      { forceNo: "175320249", rank: "CT/DVR", name: "MUKESH RAM", mobile: "7999851490", status: "PRESENT", attachment: "", dlNo: "CG04-2016004910", dlValid: "2035-07-09", photo: "" },
+      { forceNo: "085120542", rank: "HC/MMV", name: "SHIVNANDAN DAS", mobile: "9852205010", status: "PRESENT", attachment: "Workshop", dlNo: "", dlValid: "", photo: "" },
+      { forceNo: "105081179", rank: "HC/MMV", name: "SANJEET KUMAR", mobile: "8102448327", status: "PRESENT", attachment: "Workshop", dlNo: "", dlValid: "", photo: "" },
+      { forceNo: "115176049", rank: "HC/MMV", name: "PRAMOD KUMAR PATEL", mobile: "9517259769", status: "PRESENT", attachment: "Workshop", dlNo: "", dlValid: "", photo: "" },
+      { forceNo: "175091064", rank: "CT/MMV", name: "JYOTIRMAY SAHARIYA", mobile: "7006457718", status: "PRESENT", attachment: "Workshop", dlNo: "", dlValid: "", photo: "" },
+      { forceNo: "115094667", rank: "CT/PTR", name: "MD. ROKIBOL ISLAM", mobile: "7002779898", status: "PRESENT", attachment: "Workshop", dlNo: "", dlValid: "", photo: "" }
+    ];
+
+    const INITIAL_VEHICLES = [
+      { regNo: "AS01 FH 5372", type: "TATA SAFARI", year: "2022", inspDate: "02/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR DEBASHISH DEB", km: 34210 },
+      { regNo: "AS01 EG 8169", type: "M/SCORPIO", year: "2019", inspDate: "02/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR R. MADHESHWARAN", km: 68420 },
+      { regNo: "TR01 C 1324", type: "SML MINI BUS", year: "2016", inspDate: "02/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR SURESH KUMAR", km: 92100 },
+      { regNo: "AS01 GL 5719", type: "M/BOLERO NEO", year: "2025", inspDate: "03/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR VIKASH DUBEY", km: 11250 },
+      { regNo: "AS01 BS 1818", type: "M/SWIFT DEZIRE", year: "2015", inspDate: "03/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR JOHN JUSTIN", km: 104500 },
+      { regNo: "TR01 G 1154", type: "EICHER", year: "2017", inspDate: "04/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR MANI RAM CHETTRI", km: 78300 },
+      { regNo: "TR01 G 1155", type: "EICHER", year: "2017", inspDate: "04/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR MANIKANTAN S.", km: 81400 },
+      { regNo: "AS01 UC 1704", type: "MAHINDRA TRUCK", year: "2025", inspDate: "04/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR RAKESH KUMAR", km: 9400 },
+      { regNo: "AS01 RC 9843", type: "TATA STAR BUS", year: "2024", inspDate: "06/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR NIPEN HAJARIKA", km: 22150 },
+      { regNo: "AS01 NC 2289", type: "TRACTOR", year: "2021", inspDate: "06/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR RAM KUMAR", km: 15400 },
+      { regNo: "AS01 UC 1724", type: "A/LEYLAND TRUCK", year: "2025", inspDate: "06/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR RAJEEB SHARMA", km: 8700 },
+      { regNo: "AS01 TU 6358", type: "RECOVERY", year: "2023", inspDate: "09/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR SHANKAR BISWAS", km: 19300 },
+      { regNo: "AS01 JC 4423", type: "TATA 407", year: "2017", inspDate: "09/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR SUJIT KUMAR CHOUDHURI", km: 65200 },
+      { regNo: "AS01 RC 8830", type: "TATA WATER TRUCK", year: "2013", inspDate: "09/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR KAMAL KUMAR", km: 88900 },
+      { regNo: "AS01 RC 5206", type: "TATA WATER TRUCK", year: "2015", inspDate: "10/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR MAHAVEER SINGH", km: 79100 },
+      { regNo: "UP70 AG 3863", type: "JETTING MACHINE", year: "2019", inspDate: "10/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR MANOJ KUMAR RAY", km: 31200 },
+      { regNo: "TR01 AW 0427", type: "TATA SUMO", year: "2016", inspDate: "10/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR KUSHAL NANDAN", km: 95400 },
+      { regNo: "AS01 DC 3020", type: "TATA BUS", year: "2011", inspDate: "11/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR R. RAMESH", km: 121000 },
+      { regNo: "AS01 RC 9782", type: "A/LEYLAND TRUCK", year: "2024", inspDate: "11/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR SUBIR NATH", km: 18900 },
+      { regNo: "TR01 JC 4424", type: "SML P/VAN", year: "2016", inspDate: "13/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR SUNIL KUMAR", km: 74300 },
+      { regNo: "UP70 AG 3879", type: "GARBAGE", year: "2019", inspDate: "13/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR UPENDRA DEBNATH", km: 41200 },
+      { regNo: "AS01 TC 0178", type: "TATA TRUCK", year: "2025", inspDate: "13/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR PRAJAPATI HARESH", km: 7600 },
+      { regNo: "AS01 TC 0183", type: "TATA TRUCK", year: "2025", inspDate: "16/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR SANDEEP KUMAR", km: 8100 },
+      { regNo: "AS01 DD 5605", type: "AMBULANCE", year: "2011", inspDate: "16/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR NITESH KUMAR SINGH", km: 112400 },
+      { regNo: "AS01 FR 1039", type: "M/C HUNTER 350", year: "2023", inspDate: "17/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR RAJKUMAR TIWARI", km: 14200 },
+      { regNo: "TR01 AC 1665", type: "SML (4x4)", year: "2017", inspDate: "17/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR PUSHAP SHARMA", km: 67800 },
+      { regNo: "TR01 AC 1667", type: "SML (4x4)", year: "2017", inspDate: "18/11/2026", status: "PRESENT", attachment: "", chargeHolder: "HC/DVR RAJEEV RANJAN", km: 69100 },
+      { regNo: "CG04 MA 3688", type: "TATA BUS", year: "2024", inspDate: "18/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR BHUSAN DAS", km: 21400 },
+      { regNo: "AS01 TC 0197", type: "TATA STAR BUS", year: "2025", inspDate: "20/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR BINOY MALICK", km: 9800 },
+      { regNo: "AS01 KC 5200", type: "TATA 407", year: "2018", inspDate: "20/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR ABDUL SAHID", km: 58300 },
+      { regNo: "TR01 G 1156", type: "TATA 407", year: "2017", inspDate: "23/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR N. MANIMOHAN SINGH", km: 63900 },
+      { regNo: "AS01 TC 0256", type: "A/LEYLAND W/TRUCK", year: "2025", inspDate: "23/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR SUDALA PRAVEEN", km: 6500 },
+      { regNo: "AS01 TC 8182", type: "SML AMBULANCE", year: "2024", inspDate: "25/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR SANGEET GIRI", km: 17800 },
+      { regNo: "MH40 BG 4125", type: "TATA TRUCK", year: "2017", inspDate: "25/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR RITESH KUMAR PANDEY", km: 72400 },
+      { regNo: "JK02 DK 7573", type: "A/Leyland BUS", year: "2017", inspDate: "27/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR ANUJ GAUTAM", km: 84500 },
+      { regNo: "AS01 DB 3013", type: "TATA BUS", year: "2011", inspDate: "27/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR AJEET SINGH", km: 118900 },
+      { regNo: "AS01 EL 1349", type: "JCB", year: "2020", inspDate: "30/11/2026", status: "PRESENT", attachment: "", chargeHolder: "CT/DVR ATUL KUMAR", km: 12300 },
+      { regNo: "TR01 G 0986", type: "TRACTOR", year: "2026", inspDate: "N/A", status: "ATTACHMENT", attachment: "ATTACHED WITH M&N SECTOR", chargeHolder: "CT/DVR RAMESH JAMBHALE", km: 2100 }
+    ];
+
+    // ==========================================
+    // 2. APPLICATION STATE & LIVE SYNC ENGINE
+    // ==========================================
+    const STORAGE_KEY = "MT_GC_AGT_DB_LIVE_V2";
+    let appState = {
+      adminForceNo: "165060166", // Default Admin: Vikash Dubey
+      passwords: {},
+      personnel: INITIAL_PERSONNEL,
+      vehicles: INITIAL_VEHICLES,
+      gateLogs: [],
+      duties: [],
+      documents: [],
+      lastNotification: null
+    };
+
+    window.getAppState = () => appState;
+
+    function loadState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          appState = {
+            adminForceNo: parsed.adminForceNo || "165060166",
+            passwords: parsed.passwords || {},
+            personnel: parsed.personnel || INITIAL_PERSONNEL,
+            vehicles: parsed.vehicles || INITIAL_VEHICLES,
+            gateLogs: parsed.gateLogs || [],
+            duties: parsed.duties || [],
+            documents: parsed.documents || [],
+            lastNotification: parsed.lastNotification || null
+          };
+        } catch (e) {
+          console.error("State parse error:", e);
+        }
+      }
+      appState.personnel.forEach(p => {
+        if (!appState.passwords[p.forceNo]) {
+          appState.passwords[p.forceNo] = "Mt@" + p.forceNo;
+        }
+      });
+    }
+
+    function saveState(notifyMsg = null) {
+      if (notifyMsg) {
+        appState.lastNotification = {
+          msg: notifyMsg,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          id: Date.now()
+        };
+        showToast("MT GC AGT Update", notifyMsg);
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      if (window.cloudSyncEnabled && window.pushToCloud) {
+        window.pushToCloud(appState);
+      }
+      refreshUI();
+    }
+
+    window.onCloudUpdate = (cloudData, shouldNotify) => {
+      appState = {
+        adminForceNo: cloudData.adminForceNo || "165060166",
+        passwords: cloudData.passwords || {},
+        personnel: cloudData.personnel || INITIAL_PERSONNEL,
+        vehicles: cloudData.vehicles || INITIAL_VEHICLES,
+        gateLogs: cloudData.gateLogs || [],
+        duties: cloudData.duties || [],
+        documents: cloudData.documents || [],
+        lastNotification: cloudData.lastNotification || null
+      };
+      appState.personnel.forEach(p => {
+        if (!appState.passwords[p.forceNo]) appState.passwords[p.forceNo] = "Mt@" + p.forceNo;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      if (shouldNotify && appState.lastNotification) {
+        showToast("Live Sync Alert", appState.lastNotification.msg);
+      }
+      refreshUI();
+    };
+
+    function showToast(title, msg) {
+      const toast = document.getElementById("liveToast");
+      document.getElementById("toastTitle").innerText = title;
+      document.getElementById("toastMsg").innerText = msg;
+      toast.classList.remove("hidden");
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => toast.classList.add("hidden"), 4500);
+    }
+
+    // ==========================================
+    // 3. AUTHENTICATION & ROLE CONTROL
+    // ==========================================
+    let currentUser = null;
+
+    function isAdmin() {
+      return currentUser && currentUser.forceNo === appState.adminForceNo;
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const forceNo = document.getElementById("loginForceNo").value.trim();
+      const pass = document.getElementById("loginPassword").value.trim();
+      const errEl = document.getElementById("loginError");
+
+      const person = appState.personnel.find(p => p.forceNo === forceNo);
+      if (!person) {
+        errEl.innerText = "Force Number not found in MT GC AGT records.";
+        errEl.classList.remove("hidden");
+        return;
+      }
+
+      const validPass = appState.passwords[forceNo] || ("Mt@" + forceNo);
+      if (pass !== validPass) {
+        errEl.innerText = "Incorrect Password! Default is Mt@" + forceNo;
+        errEl.classList.remove("hidden");
+        return;
+      }
+
+      errEl.classList.add("hidden");
+      currentUser = person;
+      sessionStorage.setItem("MT_GC_AGT_USER", forceNo);
+      enterApp();
+    });
+
+    function enterApp() {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("mainApp").classList.remove("hidden");
+      refreshUI();
+    }
+
+    function logout() {
+      sessionStorage.removeItem("MT_GC_AGT_USER");
+      currentUser = null;
+      document.getElementById("mainApp").classList.add("hidden");
+      document.getElementById("loginScreen").classList.remove("hidden");
+    }
+
+    // ==========================================
+    // 4. UI RENDERING & DASHBOARD COUNTERS
+    // ==========================================
+    function refreshUI() {
+      if (!currentUser) return;
+      currentUser = appState.personnel.find(p => p.forceNo === currentUser.forceNo) || currentUser;
+
+      const roleLabel = isAdmin() ? "★ ADMIN" : "STAFF";
+      document.getElementById("loggedUserInfo").innerText = `${currentUser.rank} ${currentUser.name} (${roleLabel})`;
+
+      document.querySelectorAll(".admin-only").forEach(el => {
+        if (isAdmin()) el.classList.remove("hidden");
+        else el.classList.add("hidden");
+      });
+
+      updateDashboardCounts();
+      renderGateLogs();
+      renderPersonnel();
+      renderVehicles();
+      renderDutyRoster();
+      renderDocuments();
+      populateAdminDropdowns();
+      lucide.createIcons();
+    }
+
+    function updateDashboardCounts() {
+      const p = appState.personnel;
+      document.getElementById("pTotalCount").innerText = `Total: ${p.length}`;
+      document.getElementById("pPresentCount").innerText = p.filter(x => x.status === "PRESENT").length;
+      document.getElementById("pDutyCount").innerText = p.filter(x => x.status === "ON DUTY").length;
+      document.getElementById("pLeaveCount").innerText = p.filter(x => x.status === "LEAVE").length;
+      document.getElementById("pCourseCount").innerText = p.filter(x => x.status === "COURSE").length;
+      document.getElementById("pAttachCount").innerText = p.filter(x => x.status === "ATTACHMENT").length;
+      document.getElementById("pOtherCount").innerText = p.filter(x => x.status === "OTHER").length;
+
+      const v = appState.vehicles;
+      document.getElementById("vTotalCount").innerText = `Total: ${v.length}`;
+      document.getElementById("vPresentCount").innerText = v.filter(x => x.status === "PRESENT").length;
+      document.getElementById("vDutyCount").innerText = v.filter(x => x.status === "ON DUTY").length;
+      document.getElementById("vOffRoadCount").innerText = v.filter(x => x.status === "OFF ROAD").length;
+      document.getElementById("vCbpCount").innerText = v.filter(x => x.status === "UNDER CBP").length;
+      document.getElementById("vAttachCount").innerText = v.filter(x => x.status === "ATTACHMENT").length;
+    }
+
+    function filterPersonnelByStatus(status) {
+      document.getElementById("personnelStatusFilter").value = status;
+      switchTab("personnel");
+    }
+
+    function filterVehiclesByStatus(status) {
+      document.getElementById("vehicleStatusFilter").value = status;
+      switchTab("vehicles");
+    }
+
+    function switchTab(tabName) {
+      ["dashboard", "personnel", "vehicles", "duty", "docs"].forEach(t => {
+        document.getElementById("tab-" + t).classList.add("hidden");
+        document.getElementById("nav-" + t).classList.replace("text-emerald-800", "text-slate-400");
+      });
+      document.getElementById("tab-" + tabName).classList.remove("hidden");
+      document.getElementById("nav-" + tabName).classList.replace("text-slate-400", "text-emerald-800");
+      lucide.createIcons();
+    }
+
+    // ==========================================
+    // 5. VEHICLE GATE IN / OUT (ADMIN OR DRIVER)
+    // ==========================================
+    function openGateOutModal() {
+      const vSel = document.getElementById("gateOutVehicle");
+      const dSel = document.getElementById("gateOutDriver");
+
+      const availVehicles = appState.vehicles.filter(v => v.status === "PRESENT");
+      vSel.innerHTML = availVehicles.map(v => `<option value="${v.regNo}">${v.regNo} (${v.type})</option>`).join("");
+
+      const drivers = appState.personnel.filter(p => p.rank.includes("DVR") || isAdmin());
+      dSel.innerHTML = drivers.map(d => `<option value="${d.forceNo}" ${d.forceNo === currentUser.forceNo ? "selected" : ""}>${d.rank} ${d.name} (${d.forceNo})</option>`).join("");
+
+      document.getElementById("gateOutModal").classList.remove("hidden");
+    }
+
+    function submitGateOut(e) {
+      e.preventDefault();
+      const regNo = document.getElementById("gateOutVehicle").value;
+      const driverForceNo = document.getElementById("gateOutDriver").value;
+      const outKm = parseInt(document.getElementById("gateOutKm").value, 10);
+      const dest = document.getElementById("gateOutDest").value.trim();
+
+      if (!isAdmin() && currentUser.forceNo !== driverForceNo) {
+        alert("Permission Denied: Only Admin or the assigned Driver can mark this vehicle OUT.");
+        return;
+      }
+
+      const driver = appState.personnel.find(p => p.forceNo === driverForceNo);
+      const vehicle = appState.vehicles.find(v => v.regNo === regNo);
+      if (!vehicle || !driver) return;
+
+      vehicle.status = "ON DUTY";
+      vehicle.km = outKm;
+      driver.status = "ON DUTY";
+
+      appState.gateLogs.unshift({
+        id: "LOG-" + Date.now(),
+        regNo: vehicle.regNo,
+        vehicleType: vehicle.type,
+        driverForceNo: driver.forceNo,
+        driverName: `${driver.rank} ${driver.name}`,
+        dest: dest,
+        outKm: outKm,
+        inKm: null,
+        outTime: new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }),
+        inTime: null,
+        active: true
+      });
+
+      closeModal("gateOutModal");
+      saveState(`Vehicle ${regNo} OUT with ${driver.name} for ${dest}`);
+    }
+
+    function markVehicleIn(logId) {
+      const log = appState.gateLogs.find(l => l.id === logId);
+      if (!log) return;
+
+      if (!isAdmin() && currentUser.forceNo !== log.driverForceNo) {
+        alert("Only Admin or the Driver who took this vehicle (" + log.driverName + ") can mark it IN.");
+        return;
+      }
+
+      const inKmStr = prompt(`Enter Closing / IN KM Reading for ${log.regNo} (OUT KM was ${log.outKm}):`, log.outKm + 15);
+      if (!inKmStr) return;
+      const inKm = parseInt(inKmStr, 10);
+
+      log.active = false;
+      log.inKm = inKm;
+      log.inTime = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
+
+      const vehicle = appState.vehicles.find(v => v.regNo === log.regNo);
+      if (vehicle) {
+        vehicle.status = "PRESENT";
+        vehicle.km = inKm;
+      }
+
+      const driver = appState.personnel.find(p => p.forceNo === log.driverForceNo);
+      if (driver && driver.status === "ON DUTY") {
+        driver.status = "PRESENT";
+      }
+
+      saveState(`Vehicle ${log.regNo} returned IN (${inKm} KM)`);
+    }
+
+    function renderGateLogs() {
+      const container = document.getElementById("activeGateLogs");
+      if (!appState.gateLogs || appState.gateLogs.length === 0) {
+        container.innerHTML = `<p class="p-4 text-center text-xs text-slate-400">No vehicle IN/OUT movements recorded yet.</p>`;
+        return;
+      }
+
+      container.innerHTML = appState.gateLogs.slice(0, 15).map(log => {
+        const canIn = log.active && (isAdmin() || currentUser.forceNo === log.driverForceNo);
+        return `
+          <div class="p-3 flex items-center justify-between gap-2 ${log.active ? 'bg-amber-50/60' : 'bg-white'}">
+            <div class="text-xs">
+              <div class="flex items-center gap-2">
+                <span class="font-extrabold text-slate-900">${log.regNo}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${log.active ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}">
+                  ${log.active ? 'OUT ON DUTY' : 'RETURNED IN'}
+                </span>
+              </div>
+              <p class="text-slate-600 font-medium mt-0.5">${log.driverName} • <b>${log.dest}</b></p>
+              <p class="text-[10px] text-slate-400 mt-0.5">OUT: ${log.outTime} (${log.outKm} km) ${log.inTime ? `| IN: ${log.inTime} (${log.inKm} km)` : ''}</p>
+            </div>
+            ${canIn ? `<button onclick="markVehicleIn('${log.id}')" class="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shrink-0 shadow">MARK IN</button>` : ''}
+          </div>
+        `;
+      }).join("");
+    }
+
+    // ==========================================
+    // 6. PERSONNEL DIRECTORY & PROFILE MODAL
+    // ==========================================
+    function getStatusBadge(status) {
+      const map = {
+        "PRESENT": "bg-emerald-100 text-emerald-800 border-emerald-300",
+        "ON DUTY": "bg-blue-100 text-blue-800 border-blue-300",
+        "LEAVE": "bg-red-100 text-red-800 border-red-300",
+        "COURSE": "bg-purple-100 text-purple-800 border-purple-300",
+        "ATTACHMENT": "bg-amber-100 text-amber-800 border-amber-300",
+        "OFF ROAD": "bg-red-100 text-red-800 border-red-300",
+        "UNDER CBP": "bg-orange-100 text-orange-800 border-orange-300",
+        "OTHER": "bg-slate-200 text-slate-800 border-slate-300"
+      };
+      return map[status] || "bg-slate-100 text-slate-700";
+    }
+
+    function renderPersonnel() {
+      const q = document.getElementById("personnelSearch").value.toLowerCase();
+      const statusF = document.getElementById("personnelStatusFilter").value;
+
+      const filtered = appState.personnel.filter(p => {
+        const matchQ = p.name.toLowerCase().includes(q) || p.forceNo.includes(q) || p.rank.toLowerCase().includes(q);
+        const matchS = statusF === "ALL" || p.status === statusF;
+        return matchQ && matchS;
+      });
+
+      document.getElementById("personnelList").innerHTML = filtered.map(p => `
+        <div onclick="openPersonnelDetail('${p.forceNo}')" class="cursor-pointer bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3 hover:border-emerald-600 transition">
+          <div class="flex items-center gap-3">
+            ${p.photo 
+              ? `<img src="${p.photo}" class="w-11 h-11 rounded-full object-cover border border-slate-300 shrink-0" />`
+              : `<div class="w-11 h-11 rounded-full bg-emerald-900 text-white font-bold text-xs flex items-center justify-center shrink-0">${p.name.substring(0,2)}</div>`
+            }
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-extrabold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">${p.rank}</span>
+                <h3 class="text-xs font-extrabold text-slate-900">${p.name}</h3>
+                ${p.forceNo === appState.adminForceNo ? `<span class="text-[9px] bg-amber-400 text-slate-950 font-extrabold px-1.5 rounded">ADMIN</span>` : ''}
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">Force No: <b>${p.forceNo}</b> • Mob: ${p.mobile}</p>
+              ${p.attachment ? `<p class="text-[10px] text-amber-700 font-semibold">Att: ${p.attachment}</p>` : ''}
+            </div>
+          </div>
+          <div class="flex flex-col items-end gap-1.5 shrink-0">
+            <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${getStatusBadge(p.status)}">${p.status}</span>
+            <a href="tel:${p.mobile}" onclick="event.stopPropagation()" class="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200">
+              <i data-lucide="phone-call" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+        </div>
+      `).join("");
+      lucide.createIcons();
+    }
+
+    function openPersonnelDetail(forceNo) {
+      const p = appState.personnel.find(x => x.forceNo === forceNo);
+      if (!p) return;
+      const isDriver = p.rank.includes("DVR");
+
+      let html = `
+        <div class="flex flex-col items-center text-center pb-3 border-b">
+          ${p.photo 
+            ? `<img src="${p.photo}" class="w-24 h-24 rounded-full object-cover border-2 border-emerald-700 shadow mb-2" />`
+            : `<div class="w-20 h-20 rounded-full bg-emerald-900 text-white text-xl font-extrabold flex items-center justify-center mb-2">${p.name.substring(0,2)}</div>`
+          }
+          <h4 class="text-base font-extrabold text-slate-900">${p.rank} ${p.name}</h4>
+          <p class="text-slate-500 font-semibold">Force No: ${p.forceNo} | Mobile: ${p.mobile}</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl">
+          <div><span class="text-slate-400 block">Current Status</span><b class="text-slate-800">${p.status}</b></div>
+          <div><span class="text-slate-400 block">Attachment / Duty</span><b class="text-slate-800">${p.attachment || 'MT Platoon'}</b></div>
+        </div>
+      `;
+
+      if (isDriver) {
+        html += `
+          <div class="bg-amber-50 border border-amber-300 p-3 rounded-xl">
+            <p class="font-extrabold text-amber-900 flex items-center gap-1.5 mb-1">
+              <i data-lucide="id-card" class="w-4 h-4"></i> Driving License (Driver Only)
+            </p>
+            <p>DL Number: <b>${p.dlNo || 'Not Updated'}</b></p>
+            <p>Valid Upto: <b>${p.dlValid || 'Not Updated'}</b></p>
+          </div>
+        `;
+      }
+
+      if (isAdmin()) {
+        html += `
+          <div class="border-t pt-3 space-y-2.5">
+            <p class="font-extrabold text-emerald-800 uppercase">Admin Edit Details & Photo</p>
+            <div>
+              <label class="font-bold text-slate-600">Upload / Change Photo (Visible to All)</label>
+              <input type="file" accept="image/*" onchange="handlePhotoUpload(event, '${p.forceNo}')" class="w-full mt-1 text-xs" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="font-bold text-slate-600">Rank</label>
+                <input type="text" id="editPRank" value="${p.rank}" class="w-full p-2 border rounded-lg font-bold" />
+              </div>
+              <div>
+                <label class="font-bold text-slate-600">Mobile No</label>
+                <input type="text" id="editPMobile" value="${p.mobile}" class="w-full p-2 border rounded-lg font-bold" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="font-bold text-slate-600">CRPF Status</label>
+                <select id="editPStatus" class="w-full p-2 border rounded-lg font-bold">
+                  <option value="PRESENT" ${p.status==='PRESENT'?'selected':''}>PRESENT</option>
+                  <option value="ON DUTY" ${p.status==='ON DUTY'?'selected':''}>ON DUTY</option>
+                  <option value="LEAVE" ${p.status==='LEAVE'?'selected':''}>LEAVE</option>
+                  <option value="COURSE" ${p.status==='COURSE'?'selected':''}>COURSE</option>
+                  <option value="ATTACHMENT" ${p.status==='ATTACHMENT'?'selected':''}>ATTACHMENT</option>
+                  <option value="OTHER" ${p.status==='OTHER'?'selected':''}>REST / HOSPITAL</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold text-slate-600">Attachment / Place</label>
+                <input type="text" id="editPAttach" value="${p.attachment || ''}" placeholder="e.g. DIG Office / Course" class="w-full p-2 border rounded-lg" />
+              </div>
+            </div>
+            ${isDriver ? `
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="font-bold text-slate-600">DL Number</label>
+                  <input type="text" id="editPDlNo" value="${p.dlNo || ''}" class="w-full p-2 border rounded-lg font-bold" />
+                </div>
+                <div>
+                  <label class="font-bold text-slate-600">DL Valid Date</label>
+                  <input type="date" id="editPDlValid" value="${p.dlValid || ''}" class="w-full p-2 border rounded-lg font-bold" />
+                </div>
+              </div>
+            ` : ''}
+            <div class="flex gap-2 pt-2">
+              <button onclick="savePersonnelEdit('${p.forceNo}')" class="flex-1 bg-emerald-700 text-white font-bold py-2.5 rounded-xl">SAVE CHANGES</button>
+              <button onclick="deletePersonnel('${p.forceNo}')" class="bg-red-600 text-white font-bold px-3 py-2.5 rounded-xl">DELETE</button>
+            </div>
+          </div>
+        `;
+      }
+
+      document.getElementById("personnelModalBody").innerHTML = html;
+      document.getElementById("personnelModal").classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    function handlePhotoUpload(e, forceNo) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement("canvas");
+          canvas.width = 160;
+          canvas.height = 160;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, 160, 160);
+          const p = appState.personnel.find(x => x.forceNo === forceNo);
+          if (p) {
+            p.photo = canvas.toDataURL("image/jpeg", 0.72);
+            saveState(`Photo updated for ${p.name}`);
+            openPersonnelDetail(forceNo);
+          }
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function savePersonnelEdit(forceNo) {
+      const p = appState.personnel.find(x => x.forceNo === forceNo);
+      if (!p) return;
+      p.rank = document.getElementById("editPRank").value.trim();
+      p.mobile = document.getElementById("editPMobile").value.trim();
+      p.status = document.getElementById("editPStatus").value;
+      p.attachment = document.getElementById("editPAttach").value.trim();
+      if (p.rank.includes("DVR")) {
+        p.dlNo = document.getElementById("editPDlNo").value.trim();
+        p.dlValid = document.getElementById("editPDlValid").value;
+      }
+      closeModal("personnelModal");
+      saveState(`Updated details of ${p.rank} ${p.name}`);
+    }
+
+    function deletePersonnel(forceNo) {
+      if (forceNo === appState.adminForceNo) {
+        alert("Cannot delete active Admin! Transfer Admin rights first.");
+        return;
+      }
+      if (!confirm("Remove this personnel from MT GC AGT?")) return;
+      appState.personnel = appState.personnel.filter(x => x.forceNo !== forceNo);
+      closeModal("personnelModal");
+      saveState(`Removed Force No ${forceNo} from roster`);
+    }
+
+    // ==========================================
+    // 7. VEHICLES DIRECTORY & DETAIL MODAL
+    // ==========================================
+    function renderVehicles() {
+      const q = document.getElementById("vehicleSearch").value.toLowerCase();
+      const statusF = document.getElementById("vehicleStatusFilter").value;
+
+      const filtered = appState.vehicles.filter(v => {
+        const matchQ = v.regNo.toLowerCase().includes(q) || v.type.toLowerCase().includes(q);
+        const matchS = statusF === "ALL" || v.status === statusF;
+        return matchQ && matchS;
+      });
+
+      document.getElementById("vehicleList").innerHTML = filtered.map(v => `
+        <div onclick="openVehicleDetail('${v.regNo}')" class="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm hover:border-emerald-700 transition">
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="text-sm font-extrabold text-slate-900">${v.regNo}</h3>
+              <p class="text-xs font-bold text-emerald-800">${v.type} <span class="text-slate-400 font-normal">(${v.year})</span></p>
+            </div>
+            <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${getStatusBadge(v.status)}">${v.status}</span>
+          </div>
+          <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between">
+            <span>Charge: <b>${v.chargeHolder || 'MT Pool'}</b></span>
+            <span>${v.km} KM</span>
+          </div>
+          ${v.attachment ? `<p class="text-[10px] text-purple-700 font-bold mt-1">${v.attachment}</p>` : ''}
+        </div>
+      `).join("");
+    }
+
+    function openVehicleDetail(regNo) {
+      const v = appState.vehicles.find(x => x.regNo === regNo);
+      if (!v) return;
+
+      const logs = (appState.gateLogs || []).filter(l => l.regNo === regNo).slice(0, 5);
+
+      let html = `
+        <div class="bg-slate-50 p-3 rounded-xl space-y-1.5">
+          <h4 class="text-base font-extrabold text-slate-900">${v.regNo} — ${v.type}</h4>
+          <p>Model Year: <b>${v.year}</b> | Monthly Inspection: <b>${v.inspDate}</b></p>
+          <p>Current KM: <b>${v.km} KM</b> | Status: <b>${v.status}</b></p>
+          <p>Charge Holder: <b>${v.chargeHolder}</b></p>
+          ${v.attachment ? `<p class="text-purple-700 font-bold">Attachment: ${v.attachment}</p>` : ''}
+        </div>
+
+        <div>
+          <p class="font-bold text-slate-700 mb-1">Recent Movement Logbook</p>
+          ${logs.length ? logs.map(l => `
+            <div class="p-2 bg-slate-50 rounded border mb-1 text-[11px]">
+              <b>${l.driverName}</b> → ${l.dest} (${l.outKm} to ${l.inKm || 'Running'} KM)
+            </div>
+          `).join("") : `<p class="text-slate-400">No recent logbook entries.</p>`}
+        </div>
+      `;
+
+      if (isAdmin()) {
+        html += `
+          <div class="border-t pt-3 space-y-2.5">
+            <p class="font-extrabold text-emerald-800 uppercase">Admin Edit Vehicle Details</p>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="font-bold text-slate-600">Status</label>
+                <select id="editVStatus" class="w-full p-2 border rounded-lg font-bold">
+                  <option value="PRESENT" ${v.status==='PRESENT'?'selected':''}>PRESENT</option>
+                  <option value="ON DUTY" ${v.status==='ON DUTY'?'selected':''}>ON DUTY</option>
+                  <option value="OFF ROAD" ${v.status==='OFF ROAD'?'selected':''}>OFF ROAD</option>
+                  <option value="UNDER CBP" ${v.status==='UNDER CBP'?'selected':''}>UNDER CBP</option>
+                  <option value="ATTACHMENT" ${v.status==='ATTACHMENT'?'selected':''}>ATTACHMENT</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold text-slate-600">Current KM</label>
+                <input type="number" id="editVKm" value="${v.km}" class="w-full p-2 border rounded-lg font-bold" />
+              </div>
+            </div>
+            <div>
+              <label class="font-bold text-slate-600">Charge Holder Driver</label>
+              <input type="text" id="editVCharge" value="${v.chargeHolder || ''}" class="w-full p-2 border rounded-lg font-bold" />
+            </div>
+            <div>
+              <label class="font-bold text-slate-600">Attachment / Off-Road Reason</label>
+              <input type="text" id="editVAttach" value="${v.attachment || ''}" placeholder="e.g. Attached with M&N Sector / Repair" class="w-full p-2 border rounded-lg" />
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button onclick="saveVehicleEdit('${v.regNo}')" class="flex-1 bg-emerald-700 text-white font-bold py-2.5 rounded-xl">SAVE VEHICLE</button>
+              <button onclick="deleteVehicle('${v.regNo}')" class="bg-red-600 text-white font-bold px-3 py-2.5 rounded-xl">DELETE</button>
+            </div>
+          </div>
+        `;
+      }
+
+      document.getElementById("vehicleModalBody").innerHTML = html;
+      document.getElementById("vehicleModal").classList.remove("hidden");
+    }
+
+    function saveVehicleEdit(regNo) {
+      const v = appState.vehicles.find(x => x.regNo === regNo);
+      if (!v) return;
+      v.status = document.getElementById("editVStatus").value;
+      v.km = parseInt(document.getElementById("editVKm").value, 10) || v.km;
+      v.chargeHolder = document.getElementById("editVCharge").value.trim();
+      v.attachment = document.getElementById("editVAttach").value.trim();
+      closeModal("vehicleModal");
+      saveState(`Vehicle ${regNo} updated (${v.status})`);
+    }
+
+    function deleteVehicle(regNo) {
+      if (!confirm("Delete vehicle " + regNo + "?")) return;
+      appState.vehicles = appState.vehicles.filter(x => x.regNo !== regNo);
+      closeModal("vehicleModal");
+      saveState(`Vehicle ${regNo} removed from fleet`);
+    }
+
+    // ==========================================
+    // 8. ADD NEW PERSONNEL / VEHICLE (ADMIN)
+    // ==========================================
+    function openAddPersonnelModal() {
+      document.getElementById("addModalTitle").innerText = "Add New MT Personnel";
+      document.getElementById("addModalBody").innerHTML = `
+        <form onsubmit="submitAddPersonnel(event)" class="space-y-2.5">
+          <input type="text" id="newPForce" required placeholder="Force Number (e.g. 185012345)" class="w-full p-2.5 border rounded-xl font-bold" />
+          <input type="text" id="newPRank" required placeholder="Rank (e.g. CT/DVR, HC/DVR, HC/MMV)" class="w-full p-2.5 border rounded-xl font-bold" />
+          <input type="text" id="newPName" required placeholder="Full Name" class="w-full p-2.5 border rounded-xl font-bold" />
+          <input type="text" id="newPMobile" required placeholder="Mobile Number" class="w-full p-2.5 border rounded-xl font-bold" />
+          <input type="text" id="newPDl" placeholder="Driving License No (Only for DVR)" class="w-full p-2.5 border rounded-xl" />
+          <button type="submit" class="w-full bg-emerald-700 text-white font-bold py-3 rounded-xl">ADD PERSONNEL</button>
+        </form>
+      `;
+      document.getElementById("addEntityModal").classList.remove("hidden");
+    }
+
+    function submitAddPersonnel(e) {
+      e.preventDefault();
+      const forceNo = document.getElementById("newPForce").value.trim();
+      if (appState.personnel.some(p => p.forceNo === forceNo)) {
+        alert("Force Number already exists!");
+        return;
+      }
+      const rank = document.getElementById("newPRank").value.trim().toUpperCase();
+      const name = document.getElementById("newPName").value.trim().toUpperCase();
+      const mobile = document.getElementById("newPMobile").value.trim();
+      const dlNo = document.getElementById("newPDl").value.trim();
+
+      appState.personnel.push({
+        forceNo, rank, name, mobile,
+        status: "PRESENT",
+        attachment: "",
+        dlNo: rank.includes("DVR") ? dlNo : "",
+        dlValid: "",
+        photo: ""
+      });
+      appState.passwords[forceNo] = "Mt@" + forceNo;
+      closeModal("addEntityModal");
+      saveState(`Added new staff: ${rank} ${name}`);
+    }
+
+    function openAddVehicleModal() {
+      document.getElementById("addModalTitle").innerText = "Add New Vehicle to Fleet";
+      document.getElementById("addModalBody").innerHTML = `
+        <form onsubmit="submitAddVehicle(event)" class="space-y-2.5">
+          <input type="text" id="newVReg" required placeholder="Registration No (e.g. TR01 AB 1234)" class="w-full p-2.5 border rounded-xl font-bold" />
+          <input type="text" id="newVType" required placeholder="Vehicle Type (e.g. TATA BUS, BOLERO)" class="w-full p-2.5 border rounded-xl font-bold" />
+          <input type="text" id="newVYear" required placeholder="Model Year (e.g. 2026)" class="w-full p-2.5 border rounded-xl font-bold" />
+          <input type="text" id="newVCharge" placeholder="Charge Holder Driver Name" class="w-full p-2.5 border rounded-xl" />
+          <button type="submit" class="w-full bg-emerald-700 text-white font-bold py-3 rounded-xl">ADD VEHICLE</button>
+        </form>
+      `;
+      document.getElementById("addEntityModal").classList.remove("hidden");
+    }
+
+    function submitAddVehicle(e) {
+      e.preventDefault();
+      const regNo = document.getElementById("newVReg").value.trim().toUpperCase();
+      if (appState.vehicles.some(v => v.regNo === regNo)) {
+        alert("Vehicle already exists!");
+        return;
+      }
+      appState.vehicles.push({
+        regNo,
+        type: document.getElementById("newVType").value.trim().toUpperCase(),
+        year: document.getElementById("newVYear").value.trim(),
+        inspDate: "Monthly",
+        status: "PRESENT",
+        attachment: "",
+        chargeHolder: document.getElementById("newVCharge").value.trim().toUpperCase(),
+        km: 0
+      });
+      closeModal("addEntityModal");
+      saveState(`Added new vehicle: ${regNo}`);
+    }
+
+    // ==========================================
+    // 9. DUTY ROSTER (HC & CT SELECTION)
+    // ==========================================
+    function populateDutyPersonnelDropdown() {
+      const rankF = document.getElementById("dutyRankFilter").value;
+      const sel = document.getElementById("dutyPersonnelSelect");
+
+      const list = appState.personnel.filter(p => {
+        if (rankF === "HC") return p.rank.startsWith("HC");
+        if (rankF === "CT") return p.rank.startsWith("CT");
+        if (rankF === "SO") return p.rank.startsWith("INSP") || p.rank.startsWith("SI") || p.rank.startsWith("ASI");
+        return true;
+      });
+
+      sel.innerHTML = list.map(p => `<option value="${p.forceNo}">${p.rank} ${p.name} (${p.status})</option>`).join("");
+    }
+
+    function assignDuty() {
+      const post = document.getElementById("dutyPostSelect").value;
+      const forceNo = document.getElementById("dutyPersonnelSelect").value;
+      const p = appState.personnel.find(x => x.forceNo === forceNo);
+      if (!p) return;
+
+      p.status = "ON DUTY";
+      appState.duties.unshift({
+        id: "DUTY-" + Date.now(),
+        post,
+        forceNo: p.forceNo,
+        rank: p.rank,
+        name: p.name,
+        mobile: p.mobile,
+        date: new Date().toLocaleDateString('en-IN')
+      });
+
+      saveState(`Duty Assigned: ${p.rank} ${p.name} → ${post}`);
+    }
+
+    function removeDuty(id) {
+      const d = appState.duties.find(x => x.id === id);
+      if (d) {
+        const p = appState.personnel.find(x => x.forceNo === d.forceNo);
+        if (p && p.status === "ON DUTY") p.status = "PRESENT";
+      }
+      appState.duties = appState.duties.filter(x => x.id !== id);
+      saveState("Duty entry removed");
+    }
+
+    function renderDutyRoster() {
+      populateDutyPersonnelDropdown();
+      const container = document.getElementById("dutyRosterList");
+      if (!appState.duties || appState.duties.length === 0) {
+        container.innerHTML = `<p class="bg-white p-4 rounded-xl text-center text-xs text-slate-400 border">No active duties assigned yet.</p>`;
+        return;
+      }
+
+      container.innerHTML = appState.duties.map(d => `
+        <div class="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-extrabold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">${d.post}</span>
+            <h4 class="text-xs font-extrabold text-slate-900 mt-1">${d.rank} ${d.name}</h4>
+            <p class="text-[11px] text-slate-500">Force No: ${d.forceNo} • Mob: ${d.mobile} • Date: ${d.date}</p>
+          </div>
+          ${isAdmin() ? `<button onclick="removeDuty('${d.id}')" class="text-red-600 p-2 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+        </div>
+      `).join("");
+      lucide.createIcons();
+    }
+
+    // ==========================================
+    // 10. DOCUMENTS UPLOAD, VIEW & SHARE
+    // ==========================================
+    function uploadDocument() {
+      const title = document.getElementById("docTitle").value.trim();
+      const fileInput = document.getElementById("docFileInput");
+      const file = fileInput.files[0];
+
+      if (!title || !file) {
+        alert("Please enter Document Title and select a file.");
+        return;
+      }
+
+      if (file.size > 4 * 1024 * 1024) {
+        alert("Please select a file smaller than 4 MB for fast live sync across all mobiles.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        appState.documents.unshift({
+          id: "DOC-" + Date.now(),
+          title,
+          fileName: file.name,
+          fileType: file.type,
+          dataUrl: e.target.result,
+          uploadedAt: new Date().toLocaleDateString('en-IN')
+        });
+        document.getElementById("docTitle").value = "";
+        fileInput.value = "";
+        saveState(`New Document Uploaded: ${title}`);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderDocuments() {
+      const container = document.getElementById("documentsList");
+      if (!appState.documents || appState.documents.length === 0) {
+        container.innerHTML = `<p class="py-4 text-center text-xs text-slate-400">No official documents uploaded yet.</p>`;
+        return;
+      }
+
+      container.innerHTML = appState.documents.map(doc => `
+        <div class="py-3 flex items-center justify-between gap-2">
+          <div>
+            <h4 class="text-xs font-extrabold text-slate-900">${doc.title}</h4>
+            <p class="text-[10px] text-slate-500">${doc.fileName} • ${doc.uploadedAt}</p>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <a href="${doc.dataUrl}" download="${doc.fileName}" class="bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Save/Open
+            </a>
+            ${isAdmin() ? `<button onclick="deleteDoc('${doc.id}')" class="p-1.5 text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+          </div>
+        </div>
+      `).join("");
+      lucide.createIcons();
+    }
+
+    function deleteDoc(id) {
+      appState.documents = appState.documents.filter(d => d.id !== id);
+      saveState("Document deleted");
+    }
+
+    // ==========================================
+    // 11. ADMIN PASSWORD RESET & ID TRANSFER
+    // ==========================================
+    function populateAdminDropdowns() {
+      if (!isAdmin()) return;
+      const options = appState.personnel.map(p => `<option value="${p.forceNo}">${p.rank} ${p.name} (${p.forceNo})</option>`).join("");
+      document.getElementById("resetPassUserSelect").innerHTML = options;
+      document.getElementById("transferAdminSelect").innerHTML = options;
+    }
+
+    function adminResetPassword() {
+      const targetForceNo = document.getElementById("resetPassUserSelect").value;
+      const customPass = document.getElementById("newPassInput").value.trim();
+      const finalPass = customPass || ("Mt@" + targetForceNo);
+
+      appState.passwords[targetForceNo] = finalPass;
+      document.getElementById("newPassInput").value = "";
+      saveState(`Password updated for Force No ${targetForceNo}`);
+      alert(`Password for ${targetForceNo} is now set to: ${finalPass}`);
+    }
+
+    function transferAdminRights() {
+      const newAdminForceNo = document.getElementById("transferAdminSelect").value;
+      const target = appState.personnel.find(p => p.forceNo === newAdminForceNo);
+      if (!target) return;
+
+      if (!confirm(`Are you sure you want to transfer Admin Rights to ${target.rank} ${target.name}?`)) return;
+      appState.adminForceNo = newAdminForceNo;
+      saveState(`Admin ID transferred to ${target.rank} ${target.name}`);
+    }
+
+    // ==========================================
+    // 12. CLEAN PDF EXPORTS (STRICTLY NO LEAVE COLUMN)
+    // ==========================================
+    function exportPersonnelPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFontSize(13);
+      doc.text("DETAILS OF MT PLATOON GC CRPF, AGARTALA (WEST TRIPURA)", 14, 15);
+      doc.setFontSize(9);
+      doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 21);
+
+      const rows = appState.personnel.map((p, index) => [
+        index + 1,
+        p.forceNo,
+        p.rank,
+        p.name,
+        p.mobile
+      ]);
+
+      doc.autoTable({
+        startY: 25,
+        head: [['SL NO', 'FORCE NO.', 'RANK', 'NAME', 'MOBILE NO.']],
+        body: rows,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 41, 30] },
+        styles: { fontSize: 8.5 }
+      });
+
+      doc.save("MT_GC_AGT_Personnel_Details.pdf");
+    }
+
+    function exportVehiclesPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFontSize(13);
+      doc.text("MT FLEET VEHICLE DETAILS - GC CRPF AGARTALA", 14, 15);
+
+      const rows = appState.vehicles.map((v, index) => [
+        index + 1,
+        v.regNo,
+        v.type,
+        v.year,
+        v.chargeHolder || "MT Pool"
+      ]);
+
+      doc.autoTable({
+        startY: 22,
+        head: [['SL NO', 'VEHICLE REG. NO.', 'TYPE OF VEHICLE', 'MODEL', 'CHARGE HOLDER']],
+        body: rows,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 41, 30] },
+        styles: { fontSize: 8.5 }
+      });
+
+      doc.save("MT_GC_AGT_Vehicle_Details.pdf");
+    }
+
+    function exportDutyPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFontSize(13);
+      doc.text("MT PLATOON DUTY ROSTER - GC CRPF AGARTALA", 14, 15);
+
+      const rows = (appState.duties || []).map((d, index) => [
+        index + 1,
+        d.post,
+        d.forceNo,
+        d.rank,
+        d.name,
+        d.mobile
+      ]);
+
+      doc.autoTable({
+        startY: 22,
+        head: [['SL', 'DUTY POST', 'FORCE NO.', 'RANK', 'NAME', 'MOBILE']],
+        body: rows,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 41, 30] },
+        styles: { fontSize: 8.5 }
+      });
+
+      doc.save("MT_GC_AGT_Duty_Roster.pdf");
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add("hidden");
+    }
+
+    // Boot Application
+    loadState();
+    lucide.createIcons();
+    const savedSession = sessionStorage.getItem("MT_GC_AGT_USER");
+    if (savedSession) {
+      currentUser = appState.personnel.find(p => p.forceNo === savedSession);
+      if (currentUser) enterApp();
+    }
+  </script>
+</body>
+</html>
